@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -20,33 +19,23 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build and Push to ECR
+    - name: Build and Push (Direct Mode)
       run: |
-        # 1. Login Manual usando tu ID de cuenta
+        # 1. Login Manual
         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
         
-        # 2. Buscar la carpeta del microservicio
+        # 2. Entrar a la carpeta y preparar
         TARGET_DIR=$(find . -type d -name "back-Despachos_SpringBoot" | head -n 1)
-        
-        if [ -z "$TARGET_DIR" ]; then
-          echo "ERROR: No se encontró la carpeta back-Despachos_SpringBoot"
-          exit 1
-        fi
-        
         cd "$TARGET_DIR"
-        
-        # 3. Copiar Dockerfile de la raíz a la carpeta del microservicio
         cp "$GITHUB_WORKSPACE/Dockerfile" .
         
-        # 4. Build y Push directo
+        # 3. Build con TAG explícito
         docker build -t 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest .
+        
+        # 4. Push directo
         docker push 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
 
-    - name: Deploy to EC2 via SSH
+    - name: SSH Deploy
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
