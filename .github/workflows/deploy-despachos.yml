@@ -1,0 +1,39 @@
+name: PUSH-A-DESPACHOS-REAL
+
+on:
+  push:
+    branches: [ "deploy" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+
+    - name: Forzar Subida
+      run: |
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
+        TARGET_DIR=$(find . -type d -name "back-Despachos_SpringBoot" | head -n 1)
+        cd "$TARGET_DIR"
+        cp "$GITHUB_WORKSPACE/Dockerfile" .
+        docker build -t 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest .
+        docker push 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
+
+    - name: SSH Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
+          docker pull 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
+          docker stop back-despachos || true
+          docker rm back-despachos || true
+          docker run -d --name back-despachos -p 8082:8081 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
