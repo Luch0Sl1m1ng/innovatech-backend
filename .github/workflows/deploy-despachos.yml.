@@ -1,17 +1,17 @@
-name: Deploy Despachos to Amazon ECR
+name: Deploy Despachos Final
 
 on:
   push:
     branches: [ "deploy" ]
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
+    - name: AWS Credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -19,20 +19,17 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
 
-    - name: Build and Push (Direct Mode)
+    - name: Push to Despachos
       run: |
-        # 1. Login Manual
+        # 1. Login
         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
         
-        # 2. Entrar a la carpeta y preparar
-        TARGET_DIR=$(find . -type d -name "back-Despachos_SpringBoot" | head -n 1)
-        cd "$TARGET_DIR"
+        # 2. Ir a la carpeta de Despachos
+        cd back-Despachos_SpringBoot || cd */back-Despachos_SpringBoot
         cp "$GITHUB_WORKSPACE/Dockerfile" .
         
-        # 3. Build con TAG explícito
+        # 3. BUILD Y PUSH (FORZADO A DESPACHOS)
         docker build -t 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest .
-        
-        # 4. Push directo
         docker push 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
 
     - name: SSH Deploy
