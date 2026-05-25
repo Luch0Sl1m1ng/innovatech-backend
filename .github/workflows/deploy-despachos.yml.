@@ -1,4 +1,4 @@
-name: Deploy Despachos Final
+name: PIPELINE-FINAL-DESPACHOS-AQUI
 
 on:
   push:
@@ -21,26 +21,13 @@ jobs:
 
     - name: Push to Despachos
       run: |
-        # 1. Login
+        # LOGIN
         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
         
-        # 2. Ir a la carpeta de Despachos
+        # ENTRAR A DESPACHOS
         cd back-Despachos_SpringBoot || cd */back-Despachos_SpringBoot
         cp "$GITHUB_WORKSPACE/Dockerfile" .
         
-        # 3. BUILD Y PUSH (FORZADO A DESPACHOS)
+        # EL COMANDO CLAVE (MIRA QUE DIGA DESPACHOS)
         docker build -t 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest .
         docker push 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
-
-    - name: SSH Deploy
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 536869461511.dkr.ecr.us-east-1.amazonaws.com
-          docker pull 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
-          docker stop back-despachos || true
-          docker rm back-despachos || true
-          docker run -d --name back-despachos -p 8082:8081 536869461511.dkr.ecr.us-east-1.amazonaws.com/innovatech-despachos:latest
