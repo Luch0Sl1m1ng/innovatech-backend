@@ -10,7 +10,6 @@ RUN build-descarga-dependencias-cache: mvn dependency:go-offline
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Usamos una imagen de JRE (Java Runtime Environment) mucho más ligera
 FROM openjdk:17-jdk-slim
 
 RUN addgroup --system spring && adduser --system spring --ingroup spring
