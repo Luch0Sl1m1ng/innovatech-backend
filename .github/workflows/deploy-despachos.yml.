@@ -28,7 +28,7 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         # NOMBRE DE TU REPO EN AWS
-        ECR_REPOSITORY: innovatech-depachos
+        ECR_REPOSITORY: innovatech-despachos
         IMAGE_TAG: latest
       run: |
         # Nombre de la carpeta que me pasaste antes
