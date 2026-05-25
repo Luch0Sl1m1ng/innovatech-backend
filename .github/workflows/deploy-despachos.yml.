@@ -27,11 +27,11 @@ jobs:
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        # NOMBRE DE TU REPO EN AWS
+        # NOMBRE EXACTO EN AWS (CON S)
         ECR_REPOSITORY: innovatech-despachos
         IMAGE_TAG: latest
       run: |
-        # Nombre de la carpeta que me pasaste antes
+        # Buscamos la carpeta del microservicio
         TARGET_DIR=$(find . -type d -name "back-Despachos_SpringBoot" | head -n 1)
         
         if [ -z "$TARGET_DIR" ]; then
@@ -40,8 +40,11 @@ jobs:
         fi
         
         cd "$TARGET_DIR"
+        
+        # Copiamos el Dockerfile que está en la raíz
         cp "$GITHUB_WORKSPACE/Dockerfile" .
         
+        # Construcción y subida
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
@@ -58,10 +61,8 @@ jobs:
           
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
           
-          docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-depachos:latest
-          
+          # Pull y despliegue individual (esto asegura que funcione incluso sin docker-compose)
+          docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-despachos:latest
           docker stop back-despachos || true
           docker rm back-despachos || true
-          
-          # PUERTO 8082 para Despachos
-          docker run -d --name back-despachos -p 8082:8081 ${{ steps.login-ecr.outputs.registry }}/innovatech-depachos:latest
+          docker run -d --name back-despachos -p 8082:8081 ${{ steps.login-ecr.outputs.registry }}/innovatech-despachos:latest
