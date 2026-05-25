@@ -27,31 +27,20 @@ jobs:
     - name: Build, tag, and push image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: innovatech-backend
+        # CAMBIO CLAVE: El nombre exacto de tu repositorio en AWS
+        ECR_REPOSITORY: innovatech-ventas
         IMAGE_TAG: latest
       run: |
-        # Buscamos la carpeta exacta del microservicio
         TARGET_DIR=$(find . -type d -name "back-Ventas_SpringBoot" | head -n 1)
         
         if [ -z "$TARGET_DIR" ]; then
           echo "ERROR: No se encontró la carpeta back-Ventas_SpringBoot"
-          echo "Estructura de carpetas actual:"
-          ls -R
           exit 1
         fi
         
-        echo "Carpeta encontrada: $TARGET_DIR"
         cd "$TARGET_DIR"
+        cp "$GITHUB_WORKSPACE/Dockerfile" .
         
-        # Copiamos el Dockerfile desde la raíz del repositorio
-        if [ -f "$GITHUB_WORKSPACE/Dockerfile" ]; then
-          cp "$GITHUB_WORKSPACE/Dockerfile" .
-        else
-          echo "ERROR: No se encontró el archivo Dockerfile en la raíz del repositorio"
-          exit 1
-        fi
-        
-        # Construcción y subida a ECR
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
@@ -62,19 +51,17 @@ jobs:
         username: ec2-user
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Configurar AWS dentro de la instancia para el login
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set aws_session_token ${{ secrets.AWS_SESSION_TOKEN }}
           
-          # Login en ECR y despliegue del contenedor
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
           
-          docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-backend:latest
+          # Ajustamos el nombre aquí también
+          docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-ventas:latest
           
-          # Detener y eliminar contenedor anterior si existe
-          docker stop backend || true
-          docker rm backend || true
+          docker stop back-ventas || true
+          docker rm back-ventas || true
           
-          # Lanzar el nuevo contenedor en el puerto 8081
-          docker run -d --name backend -p 8081:8081 ${{ steps.login-ecr.outputs.registry }}/innovatech-backend:latest
+          # Corriendo en el puerto 8081 para no chocar con el front
+          docker run -d --name back-ventas -p 8081:8081 ${{ steps.login-ecr.outputs.registry }}/innovatech-ventas:latest
