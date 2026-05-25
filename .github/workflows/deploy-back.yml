@@ -30,10 +30,13 @@ jobs:
         ECR_REPOSITORY: innovatech-backend
         IMAGE_TAG: latest
       run: |
-        # CAMBIA 'back-Ventas' por el nombre de tu carpeta si es distinto
-        cd back-Ventas 
-        # Copiamos el Dockerfile que está en la raíz a la carpeta actual para poder buildear
-        cp ../Dockerfile .
+        # Entramos a la carpeta principal y luego al microservicio
+        # AJUSTA LOS NOMBRES SI SON DISTINTOS (Ej: backend/Ventas)
+        cd backend/back-Ventas 
+        
+        # Copiamos el Dockerfile que está en la raíz del repo a esta carpeta
+        cp ../../Dockerfile .
+        
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
