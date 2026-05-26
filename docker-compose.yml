@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: innovatech-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-innovatech_db}
+      MYSQL_USER: ${MYSQL_USER:-user_admin}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
+    volumes:
+      - db_data:/var/lib/mysql # IE2: Persistencia con Named Volume
+    ports:
+      - "3306:3306"
+    networks:
+      - app_net
+
+  despachos-backend:
+    build:
+      context: ./InnovatechBackend/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    container_name: innovatech-despachos
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-innovatech_db}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-user_admin}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - db
+    ports:
+      - "8081:8080"
+    networks:
+      - app_net
+
+  ventas-backend:
+    build:
+      context: ./InnovatechBackend/back-Ventas_SpringBoot/Springboot-API-REST
+    container_name: innovatech-ventas
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-innovatech_db}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-user_admin}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - db
+    ports:
+      - "8082:8080"
+    networks:
+      - app_net
+
+  frontend:
+    build:
+      context: ./front_despacho
+    container_name: innovatech-front
+    depends_on:
+      - despachos-backend
+      - ventas-backend
+    ports:
+      - "80:80" # CAMBIADO: Ahora entras directo con la IP en AWS
+    networks:
+      - app_net
+
+volumes:
+  db_data: # IE2: Definición del volumen nombrado
+
+networks:
+  app_net:
+    driver: bridge
