@@ -30,14 +30,21 @@ jobs:
           ECR_REPOSITORY: innovatech-ventas
           IMAGE_TAG: latest
         run: |
-          TARGET_DIR=$(find . -type d -name "back-Ventas_SpringBoot" | head -n 1)
+          TARGET_DIR=$(find . -type d -iname "back-Ventas_SpringBoot" | head -n 1)
           if [ -z "$TARGET_DIR" ]; then
-            echo "ERROR: No se encontró la carpeta back-Ventas_SpringBoot"
+            echo "ERROR: No se encontro la carpeta back-Ventas_SpringBoot"
+            ls -la
             exit 1
           fi
+          DOCKERFILE_SRC=$(find . -maxdepth 1 -iname "dockerfile" | head -n 1)
+          if [ -z "$DOCKERFILE_SRC" ]; then
+            echo "ERROR: No se encontro Dockerfile en la raiz"
+            ls -la
+            exit 1
+          fi
+          cp "$DOCKERFILE_SRC" "$TARGET_DIR/Dockerfile"
           cd "$TARGET_DIR"
-          cp "$GITHUB_WORKSPACE/DockerFile" .
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Force new deployment on ECS
