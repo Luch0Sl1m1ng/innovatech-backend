@@ -1,69 +1,105 @@
-version: '3.8'
+version: "3.9"
+
+# Requiere que innovatech-frontend esté clonado como carpeta hermana de este repo:
+#
+#   proyectos/
+#     innovatech-backend/    <- este repo (contiene este docker-compose.yml)
+#     innovatech-frontend/
+#
+# Copia .env.example a .env y ajusta las credenciales antes de levantar.
 
 services:
-  db:
+
+  mysql:
     image: mysql:8.0
-    container_name: innovatech-db
-    restart: always
+    container_name: innovatech-mysql
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-innovatech_db}
-      MYSQL_USER: ${MYSQL_USER:-user_admin}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
-    volumes:
-      - db_data:/var/lib/mysql # IE2: Persistencia con Named Volume
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-innovatech_db}
+      MYSQL_USER: ${DB_USERNAME:-innovatech}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-innovatech123}
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
-      - app_net
+      - innovatech-net
 
-  despachos-backend:
+  ventas:
     build:
-      context: ./InnovatechBackend/back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
-    container_name: innovatech-despachos
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-innovatech_db}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-user_admin}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-    depends_on:
-      - db
-    ports:
-      - "8081:8080"
-    networks:
-      - app_net
-
-  ventas-backend:
-    build:
-      context: ./InnovatechBackend/back-Ventas_SpringBoot/Springboot-API-REST
+      context: ./back-Ventas_SpringBoot
+      dockerfile: ../Dockerfile
     container_name: innovatech-ventas
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-innovatech_db}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-user_admin}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-pass_admin}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    restart: unless-stopped
     depends_on:
-      - db
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_ENDPOINT: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-innovatech_db}
+      DB_USERNAME: ${DB_USERNAME:-innovatech}
+      DB_PASSWORD: ${DB_PASSWORD:-innovatech123}
+      # El application.properties de Ventas no fija server.port (default 8080 de Spring Boot),
+      # pero en AWS el Task Definition inyecta SERVER_PORT=8082 para que coincida con el
+      # listener del ALB. Replicamos lo mismo acá para que el comportamiento sea idéntico.
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-innovatech_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
     ports:
-      - "8082:8080"
+      - "8082:8082"
     networks:
-      - app_net
+      - innovatech-net
+
+  despachos:
+    build:
+      context: ./back-Despachos_SpringBoot
+      dockerfile: ../Dockerfile
+    container_name: innovatech-despachos
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_ENDPOINT: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-innovatech_db}
+      DB_USERNAME: ${DB_USERNAME:-innovatech}
+      DB_PASSWORD: ${DB_PASSWORD:-innovatech123}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${DB_NAME:-innovatech_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+      # application.properties de Despachos ya trae server.port=8081, se mantiene igual.
+    ports:
+      - "8081:8081"
+    networks:
+      - innovatech-net
 
   frontend:
     build:
-      context: ./front_despacho
-    container_name: innovatech-front
+      context: ../innovatech-frontend
+      dockerfile: Dockerfile
+      args:
+        # Como el build de Vite incrusta estas URLs en tiempo de compilación, deben apuntar
+        # a los puertos publicados en el host (el navegador del usuario corre fuera de Docker).
+        VITE_VENTAS_API_URL: http://localhost:8082
+        VITE_DESPACHOS_API_URL: http://localhost:8081
+    container_name: innovatech-frontend
+    restart: unless-stopped
     depends_on:
-      - despachos-backend
-      - ventas-backend
+      - ventas
+      - despachos
     ports:
-      - "80:80" # CAMBIADO: Ahora entras directo con la IP en AWS
+      - "80:80"
     networks:
-      - app_net
-
-volumes:
-  db_data: # IE2: Definición del volumen nombrado
+      - innovatech-net
 
 networks:
-  app_net:
+  innovatech-net:
     driver: bridge
+
+volumes:
+  mysql_data:
